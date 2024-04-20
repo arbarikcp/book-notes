@@ -156,3 +156,23 @@ then reload the conf
 This does not terminate the connection
 - Terminate the connection:
     `SELECT pg_terminate_backend(1234);`
+
+- Even though pg_terminate_backend and pg_cancel_backend act on only one connection at a time, you can kill multiple connections by wrapping them in a SELECT.
+
+-For example, let’s suppose you want to kill all connections belonging to a role
+    
+`SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE usename = 'some_role'; `
+
+- You can set certain operational parameters at the server, database, user, session, or function level. Any queries that exceed the parameter will automatically be cancelled by the server. For example: `deadlock_timeout` param.
+- Instead of relying on this setting, you can include a NOWAIT clause
+1. `SELECT FOR UPDATE NOWAIT ...`  The query will be automatically cancelled upon encountering a deadlock.
+2. `SELECT FOR UPDATE SKIP LOCKED` will skip over locked rows. 
+
+- **statement_timeout**: This is the amount of time a query can run before it is forced to cancel. This defaults to 0, meaning no time limit.
+
+- **lock_timeout**: This is the amount of time a query should wait for a lock before giving up, and is most applicable to update queries.
+- **idle_in_transaction_session_timeout**: It’s useful for preventing queries from holding on to locks on data indefinitely or eating up a connection.
+
+### Check for Queries Being Blocked
+
+#### pg_stat_activity view
