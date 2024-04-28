@@ -159,7 +159,7 @@ This does not terminate the connection
 
 - Even though pg_terminate_backend and pg_cancel_backend act on only one connection at a time, you can kill multiple connections by wrapping them in a SELECT.
 
--For example, let’s suppose you want to kill all connections belonging to a role
+- For example, let’s suppose you want to kill all connections belonging to a role
     
 `SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE usename = 'some_role'; `
 
@@ -176,3 +176,72 @@ This does not terminate the connection
 ### Check for Queries Being Blocked
 
 #### pg_stat_activity view
+
+### Roles
+- Roles that can log in are called login roles. 
+- Roles can also be members of other roles; the roles that contain other roles are called group roles.
+- Group roles that can log in are called group login roles.
+    -  However, for security, group roles generally cannot log in. This is merely a best-practice suggestion. Nothing stops you
+
+- creating login role ` CREATE ROLE leo LOGIN PASSWORD 'king' VALID UNTIL 'infinity' CREATEDB;`
+- Creating superuser roles `CREATE ROLE regina LOGIN PASSWORD 'queen' VALID UNTIL '2020-1-1 00:00' SUPERUSER;`
+- the above to user can login, To create roles that cannot log in, omit the LOGIN PASSWORD clause.
+- Create a group role `CREATE ROLE royalty INHERIT;`
+    - Note the use of the modifier INHERIT. This means that any member of royalty will automatically inherit privileges of the royalty role, except for the superuser privilege.
+    - To refrain from passing privileges from the group to its members, create the role with the NOINHERIT modifier.
+- To add members to a group role 
+    `GRANT royalty TO user1`        
+    
+### Database Creation:
+- `CREATE DATABASE mydb`
+- **Template Databases** : A template database is, as the name suggests, a database that serves as a skeleton for new databases.
+    - The default PostgreSQL installation comes with two template databases: template0 and template1. If you don’t specify a template database to follow when you create a database, template1 is used.
+    - You should never alter template0 because it is the immaculate model that you’ll need to copy from if you screw up your templates.
+    - ` CREATE DATABASE my_db TEMPLATE my_template_db;`
+    - You can also mark any database as a template database. Once you do, the database is no longer editable and deletable.
+    - If ever you need to edit or drop a template database, first set the datistemplate attribute to FALSE. Don’t forget to change the value back after you’re done with edits.
+    - `UPDATE pg_database SET datistemplate = TRUE WHERE datname = 'mydb';`
+    - PostgreSQL has a little-known variable called user that retrieves the role currently logged in. `SELECT user` returns this name. user is just an alias for current_user, so you can use either.
+
+### <span style="color:red"> Privileges </span>
+
+
+### Extensions
+
+- Extensions installed ``` SELECT name, default_version, installed_version, left(comment,30) As
+comment
+FROM pg_available_extensions
+WHERE installed_version IS NOT NULL
+ORDER BY name;```
+- To get more details about a particular extension already installed in your database, enter the following command from psql:
+- ` \dx+ fuzzystrmatch`
+- Alternatively, execute the following query:
+```
+SELECT pg_describe_object(D.classid,D.objid,0) AS description
+  FROM pg_catalog.pg_depend AS D INNER JOIN pg_catalog.pg_extension AS E
+  ON D.refobjid = E.oid
+  WHERE
+  D.refclassid = 'pg_catalog.pg_extension'::pg_catalog.regclass AND
+  deptype = 'e' AND
+  E.extname = 'fuzzystrmatch';
+  ```
+- `SELECT * FROM pg_available_extensions;`
+
+### <span style="color:red"> Backup and Restore </span>
+
+### Managing Disk Storage with Tablespaces:
+- PostgreSQL uses tablespaces to ascribe logical names to physical locations on disk. Initializing a PostgreSQL cluster automatically begets two tablespaces: `pg_default`, which stores all user data, and `pg_global`, which stores all system data.
+- These are located in the same folder as your default data cluster. You’re free to create tablespaces at will and house them on any serverdisks. You can explicitly assign default tablespaces for new objects by database. You can also move existing database objects to new ones.
+- **Creating Tablespaces**: 
+    - To create a new tablespace, specify a logical name and a physical folder and make sure that the postgres service account has full access to the physical folder.
+    ` CREATE TABLESPACE secondary LOCATION '/usr/data/pgdata94_secondary';`
+- **Moving Objects Among Tablespaces**:
+    - `ALTER DATABASE mydb SET TABLESPACE secondary;`
+    - To move just one table: ` ALTER TABLE mytable SET TABLESPACE secondary;`
+    - To move all objects from default tablespace to secondary: `ALTER TABLESPACE pg_default MOVE ALL TO secondary;`
+        
+
+
+
+
+
