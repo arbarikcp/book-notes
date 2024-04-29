@@ -239,9 +239,71 @@ SELECT pg_describe_object(D.classid,D.objid,0) AS description
     - `ALTER DATABASE mydb SET TABLESPACE secondary;`
     - To move just one table: ` ALTER TABLE mytable SET TABLESPACE secondary;`
     - To move all objects from default tablespace to secondary: `ALTER TABLESPACE pg_default MOVE ALL TO secondary;`
-        
 
+## Chapter 3. psql
+- command-line utility packaged with PostgreSQL
+- you can forgo specifying your connection settings—host, port, user—by initializing the `PGHOST`, `PGPORT`, and `PGUSER` environment variables.
+- To avoid having to retype the password, you can initialize the variable `PGPASSWORD`. For more secure access, create a password file.
+- **PSQL_HISTORY**:
+- **PSQLRC**: location and name of a custom configuration file. you can place most of your settings in here. At startup, psql will read settings from your configuration file before loading default values.
+- **Executing script**: `psql -f some_script_file`
+    - `psql -d postgresql_book -c "DROP TABLE IF EXISTS dross; CREATE SCHEMA staging;"`
 
+### psql Customizations:
+- you can customize psql prompt and other settings by using psqlrc.conf.
+- If you want to bypass the configuration file and start psql with all its defaults, start it with the -X option
+- ` \set PROMPT1 '%n@%M:%>%x %/#' ` : This includes whom we are logged in as (%n), the host server (%M), the port (%>), the transaction status (%x), and the database (%/).
+    - `postgres@localhost:5442 postgresql_book#`
 
+- **Timing Executions**: Use the `\timing` command to toggle it on and off. If timing is on thenit will show the time taken by the query.
+
+- **Autocommit Commands**: `\set AUTOCOMMIT on|off` to set the auto commit. if auto commit is off then we need to commit by calling `commit`
+
+- **Creating shortcut**: You can use the \set command to create useful keyboard shortcuts.
+    - example:  `\set eav 'EXPLAIN ANALYZE VERBOSE' `
+    - Now, all you have to type is `:eav` (the colon resolves the variable):
+    - `:eav SELECT COUNT(*) FROM pg_tables;`
+
+- **History size**:
+    ` \set HISTSIZE 10`   lets you recover the past 10 commands.
+    - you may want to have the history of commands piped into separate files for perusal later: 
+        `  \set HISTFILE ~/.psql_history - :DBNAME`
+- **Executing shell commands on psql prompt**:   you can call out to the OS shell with the \! command  `\! dir`     
+- **Watching Statements** : The \watch command in psql  to repeatedly run an SQL statement at fixed intervals so you can monitor the output.
+`SELECT datname, query
+FROM pg_stat_activity
+WHERE state = 'active' AND pid != pg_backend_pid();
+\watch 10`
+    - example: log traffic in every 5 seconds:
+        ```
+        SELECT * INTO log_activity
+        FROM pg_stat_activity;
+        INSERT INTO log_activity
+        SELECT * FROM pg_stat_activity; \watch 5
+        ```
+
+- **Retrieving Details of Database Objects**: 
+    - List tables with `\dt+`
+    - `\dt+ pg_catalog.pg_t*` : ist all tables and their sizes on disk in the pg_catalog schema that begins with the letters pg_t
+    - If we need more detail then we can use \d+ command. `\d+ pg_ts_dict`
+
+- <span style="color:red"> **Crosstabview** </span> :  greatly simplifies crosstab queries. This labor-saving command is available only in the psql enviroment. 
+```
+SELECT student, subject, AVG(score)::numeric(5,2) As avg_score
+FROM test_scores
+GROUP BY student, subject
+ORDER BY student, subject
+\crosstabview student subject avg_score
+```  
+- **Importing and Exporting Data**:  psql has a `\copy` command that lets you import data from and export data to a text file. The tab is the default delimiter, but you can specify others
+https://www.depesz.com/2013/02/28/waiting-for-9-3-add-support-for-piping-copy-tofrom-an-external-program/
+
+- **Basic Reporting**: psql is capable of producing basic HTML reports. We can also write scripts to generate spphisticated html reports.
+
+## <span style="color:blue">Chapter 4. Using pgAdmin </span>
+
+Will do it later
+
+## Chapter 5. Data Types
 
 
