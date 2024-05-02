@@ -306,4 +306,200 @@ Will do it later
 
 ## Chapter 5. Data Types
 
+- PostgreSQL sprints ahead by adding support for arrays, time zone−aware datetimes, time intervals, ranges, JSON, XML, and many more. If that’s not enough, 
+- you can invent custom types also.
+- **Serials**: 
+    - Serial and its bigger sibling, bigserial, are auto-incrementing integers often used as primary keys of tables
+    - When you create a table and specify a column as serial, PostgreSQL first creates an integer column and then creates a sequence object named `table_name_column_name_seq` located in the same schema as the table.
+    - In PostgreSQL, the sequence type is a database asset in its own right.
+    - you can create them separately from a table using the `CREATE SEQUENCE` command, and you can use the same sequence across multiple tables.
+        - The cross-table sharing of the same sequence comes in handy when you’re assigning a universal key in your database.
+    - Use it by calling `nextval(sequence_name)` function.
+    - ``` CREATE SEQUENCE seq1 START 1;
+        CREATE TABLE stuff(id bigint DEFAULT nextval('seq1') PRIMARY KEY, name,text);  ```
+ - **Generate Series Function**: `generate_series` generates sequence of integers incremented by some value  or `generate_series` generates  sequence of dates or timestamps incremented by some time interval.
+    - with this we can mimic a for loop in sql. generate_series(start, end, step)
+    ``` SELECT x FROM generate_series(1,51,13) As x; x```
+
+**Textual**:
+- Use `char` only when the values stored are fixed length, such as postal codes, phone numbers, and Social Security numbers in the US.
+- There is absolutely no speed performance benefit of using `char` over `varchar` or `text` and char will always take up more disk space.
+- When defining `varchar` columns, you should specify the maximum length of a varchar. Text is the most generic of the textual data types. 
+- With `text`, you cannot specify a maximum length
+
+### String Functions
+- Common string manipulations are padding `(lpad, rpad)`, trimming whitespace `(rtrim, ltrim, trim, btrim)`, extracting substrings `(substring)`, and `concatenating` (||).
+- `lpad` truncates instead of padding if the string is too long.
+
+### Splitting Strings into Arrays, Tables, or Substrings:
+- The `split_part` function is useful for extracting an element from a delimited string
+- The `string_to_array` function is useful for creating an array of elements from a delimited string
+- By combining `string_to_array` with the `unnest` function, you can expand the returned array into a set of rows.
+- ```SELECT unnest(string_to_array('abc.123.z45', '.')) As x;```
+- `unnest` explodes an array into a row set.
+
+### Regular Expressions and Pattern Matching
+- PostgreSQL’s regular expression support is downright fantastic. You can return matches as tables or arrays and choreograph replaces and updates. Back-referencing and other fairly advanced search patterns are also supported. example: reformat a phone number.
+``` SELECT regexp_replace(
+    '6197306254',
+    '([0-9]{3})([0-9]{3})([0-9]{4})',
+    E'\(\\1\) \\2-\\3'
+    ) As x;
+     x
+    --------------
+    (619) 730-6254 
+ ```    
+- The E' construct is PostgreSQL syntax for denoting that the string to follow should be taken literally.
+
+### time
+- PostgreSQL supports time zones, enabling the automatic handling of daylight saving time (DST) conversions by region.
+- Specialized data types such as interval offer datetime arithmetic.
+- Range types provide support for temporal ranges with a slew of companion operators, functions, and indexes.
+- If a type is time zone−aware, the time changes if you change your server’s time zone.
+- **date**: Stores the month, day, and year, with no time zone awareness and no concept of hours, minutes, or seconds.
+- **time (aka time without time zone)**
+- **timestamp (aka timestamp without time zone)**: Stores both calendar dates and time (hours, minutes, seconds) but does not care about the time zone.
+- **timestamptz (aka timestamp with time zone)**:A time zone−aware date and time data type. Internally, timestamptz is stored in Coordinated Universal Time (UTC), but its display defaults to timezone of server.
+- **timetz (aka time with time zone)**: It is time zone−aware but does not store the date.
+- **interval**: A duration of time in hours, days, months, minutes, and others. It comes in handy for datetime arithmetic.
+- **tsrange**: Allows you to define opened and closed ranges of timestamp with no timezone. `'[2012-01-01 14:00, 2012-01-01 15:00)'::tsrange` defines a period starting at 14:00 but ending before 15:00
+- **tstzrange**
+- **daterange**
+
+- PostgreSQL doesn’t store the time zone, but uses it only to convert the datetime to UTC before storage. After that, the time zone information is discarded.
+- When PostgreSQL displays datetime, it does so in the default time zone dictated by the session, user, database, or server, in that order.
+- `SELECT '2012-02-10 11:00 PM'::timestamp + interval '1 hour';`
+- `SELECT '23 hours 20 minutes'::interval + '1 hour'::interval;`
+- `SELECT '2012-02-10 11:00 PM'::timestamptz - interval '1 hour';`
+- **OVERLAPS**: returns true if two time ranges overlaps 
+    - OVERLAPS takes four parameters, the first pair constituting one range and the last pair constituting the other range. An overlap considers the time periods to be half open, meaning that the start time is included but the end time is outside the range.
+    - ```
+        SELECT
+        ('2012-10-25 10:00 AM'::timestamp, '2012-10-25 2:00
+        PM'::timestamp)
+        OVERLAPS
+        ('2012-10-25 11:00 AM'::timestamp,'2012-10-26 2:00
+        PM'::timestamp) AS x
+        ```
+- **Generate time series**: 
+    - `SELECT (dt - interval '1 day')::date As eom
+    FROM generate_series('2/1/2012', '6/30/2012', interval '1 month') As dt;`
+
+- Another popular activity is to extract or format parts of a datetime value. Here, the functions `date_part` and `to_char` fit the bill
+- By default, generate_series assumes timestamptz if you don’t explicitly cast values to timestamp.
+
+### Arrays:
+- In PostgreSQL, every data type has a companion array type. If you define your own data type, PostgreSQL creates a corresponding array type in the background for you.
+
+- creating an array `SELECT ARRAY[2001, 2002, 2003] As yrs;`
+- or use constructor function, `array()`
+    - `  SELECT array(
+  SELECT DISTINCT date_part('year', log_ts)
+  FROM logs
+  ORDER BY date_part('year', log_ts)
+  );`
+- You can cast a string representation of an array to an array
+    - `SELECT '{Alex,Sonia}'::text[] As name, '{46,43}'::smallint[] As age;`
+- You can convert delimited strings to an array with the string_to_array function.
+    - `SELECT string_to_array('CA.MA.TX', '.') As estados;`
+- array_agg is an aggregate function that can take a set of any data type and convert it to an array.
+    - `SELECT array_agg(log_ts ORDER BY log_ts) As x
+    FROM logs`
+- **Creating multidimensional arrays**:
+- ``` 
+    SELECT array_agg(f.t)
+     FROM ( VALUES ('{Alex,Sonia}'::text[]),
+    ('{46,43}'::text[] ) ) As f(t);
+    array_agg
+    ----------------------
+    {{Alex,Sonia},{46,43}}
+    (1 row)
+    ```
+- In order to aggregate arrays, they must be of the same data type and the same dimension. To force that in above Example , we cast the ages to text.
+
+- **Unnesting Arrays to Rows**:
+- `SELECT unnest('{XOX,OXO,XOX}'::char(3)[]) As tic_tac_toe;`
+- if we are unnesting multiple array, then the number of resultant rows from each array must be  balanced, or else we will get some bad result.
+    - ```
+
+        SELECT
+        unnest('{three,blind,mice}'::text[]) As t,
+        unnest('{1,2,3}'::smallint[]) As i;
+        t     |i
+        ------+-
+        three |1
+        blind |2
+        mice  |3
+    ```    
+- **Array Slicing and Splicing**: 
+- PostgreSQL also supports array slicing using the start:end syntax
+- `SELECT fact_subcats[2:4] FROM census.lu_fact_types; `
+- To glue two arrays together end to end, use the concatenation operator ||:
+- `SELECT fact_subcats[1:2] || fact_subcats[3:4] FROM census.lu_fact_types;`
+- PostgreSQL array indexes start at 1. If you try to access an element above the upper bound, you won’t get an error—only NULL will be returned.
+- `array_upper` function to get the upper bound of the array. The second required parameter of the function indicates the dimension.
+
+### Array Containment Checks
+- Arrays also support the following comparison operators: `=, <>, <, >, @>, <@, and &&`. These operators require both sides of the operator to be arrays of the same array data type. If you have a GiST or GIN index on your array column, the comparison operators can utilize them.
+- The overlap operator (&&) returns true if two arrays have any elements in common
+- `SELECT '{1,2,3}'::int[] @> '{3,2}'::int[] AS contains;`
+- `SELECT '{1,2,3}'::int[] <@ '{3,2}'::int[] AS contained_by;`
+
+### Range Types
+-  [-2,2). The square bracket indicates a range that is closed on that end, whereas a parenthesis indicates a range that is open on that end.
+
+- **Built-in Range Types**: 
+    - **int4range, int8range**
+    - **numrange**
+    - **daterange**
+    - **tsrange, tstzrange**
+- For practicality, you can interpret the null to represent either -infinity on the left or infinity on the right.
+- `SELECT '[2013-01-05,2013-08-13]'::daterange;`
+- ` SELECT '(0,)'::int8range;`
+- `SELECT '(2013-01-05 10:00,2013-08-13 14:00]'::tsrange;`
+- Create a table with date range:
+- ` CREATE TABLE employment (id serial PRIMARY KEY, employee varchar(20), period daterange);` 
+- create an index on date range field
+- ` CREATE INDEX ix_employment_period ON employment USING gist (period);`
+- ` INSERT INTO employment (employee,period) VALUES ('Alex','[2012-04-24, infinity)'::daterange)`
+- **Range Operators**: 
+- Two range operators tend to be used most often: overlap (&&) and contains (@>)
+
+### JSON
+- To create a table to store JSON, define a column as a json type.
+- `CREATE TABLE persons (id serial PRIMARY KEY, person json);`
+
+- `INSERT INTO persons (person) VALUES ('person json string') `
+
+- **Querying JSON**:
+- The easiest way to traverse the hierarchy of a JSON object is by using pointer symbols.
+- ` SELECT person->'name' FROM persons;`
+- `SELECT person->'spouse'->'parents'->'father' FROM persons;`
+- **path array**: you must use the #> pointer symbol if what comes after is a path
+array.
+- the above query can be written like below in path array format. `SELECT person#>array['spouse','parents','father'] FROM persons;`
+- **JSON arrays**:
+- To penetrate JSON arrays, specify the array index. JSON arrays is zero indexed unlike PostgreSQL arrays, whose indexes start at 1.
+- `SELECT person->'children'->0->'name' FROM persons;`
+- path array equivalent of above: `SELECT person#>array['children','0','name'] FROM persons;`
+- **text representation**:
+-All queries in the prior examples return the value as JSON primitives (numbers, strings, booleans). To return the text representation, add another greater-than sign.
+- `SELECT person->'spouse'->'parents'->>'father' FROM persons;`
+- `SELECT person#>>array['children','0','name'] FROM persons;`
+- If you are chaining the -> operator, only the very last one can be a ->> operator.
+- The `json_array_elements` function takes a JSON array and returns each element of the array as a separate row.
+- `SELECT json_array_elements(person->'children')->>'name' As name FROM persons`
+- strongly encourage you to use pointer symbols, rather than `json_extract_path` function
+- **Outputting JSON**: 
+- `row_to_json` to convert a subset of columns 
+- `SELECT row_to_json(f) As jsoned_row FROM persons As f;`
+
+### Binary JSON: jsonb
+- jsonb is internally stored as a binary object and does not maintain the formatting of the original JSON text as the json data type does
+- jsonb does not allow duplicate keys and silently picks one, whereas the json type preserves duplicates.
+- jsonb columns can be directly indexed using the GIN index method (covered in “Indexes”), whereas json requires a functional index to extract key elements.
+- jsonb has similarly named functions as json, plus some additional ones.
+- In addition to the operators supported by json, jsonb has additional comparator operators for equality (=), contains (@>), contained (<@), key exists (?), any of array of keys exists (?|), and all of array of keys exists (?&).
+
+ 
 
